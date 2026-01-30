@@ -1,384 +1,138 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Spam Detektor</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<title>Spam Detector AI</title>
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
 
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 700px;
-            width: 100%;
-            padding: 40px;
-        }
+<style>
+body {
+    font-family: Arial;
+    background:#111;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
 
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
+.card {
+    background:#222;
+    padding:25px;
+    border-radius:12px;
+    width:400px;
+    text-align:center;
+}
 
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
+textarea {
+    width:100%;
+    height:120px;
+    border-radius:8px;
+    border:none;
+    padding:10px;
+    font-size:16px;
+}
 
-        .input-group {
-            margin-bottom: 20px;
-        }
+button {
+    margin-top:15px;
+    padding:10px 20px;
+    font-size:18px;
+    background:#00ffaa;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-weight: 600;
-        }
-
-        textarea {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 16px;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 120px;
-            transition: border-color 0.3s;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        button {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .result {
-            margin-top: 30px;
-            padding: 25px;
-            border-radius: 10px;
-            display: none;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .result.spam {
-            background: #ffe0e0;
-            border-left: 5px solid #ff4444;
-        }
-
-        .result.ham {
-            background: #e0ffe0;
-            border-left: 5px solid #44ff44;
-        }
-
-        .result-title {
-            font-size: 1.5em;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .result.spam .result-title {
-            color: #cc0000;
-        }
-
-        .result.ham .result-title {
-            color: #00aa00;
-        }
-
-        .confidence {
-            font-size: 1.1em;
-            color: #555;
-            margin-top: 10px;
-        }
-
-        .confidence-bar {
-            width: 100%;
-            height: 10px;
-            background: #f0f0f0;
-            border-radius: 5px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            border-radius: 5px;
-            transition: width 0.5s ease;
-        }
-
-        .spam .confidence-fill {
-            background: linear-gradient(90deg, #ff4444, #cc0000);
-        }
-
-        .ham .confidence-fill {
-            background: linear-gradient(90deg, #44ff44, #00aa00);
-        }
-
-        .loading {
-            text-align: center;
-            color: #667eea;
-            margin-top: 20px;
-            font-style: italic;
-        }
-
-        .status {
-            text-align: center;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            background: #e3f2fd;
-            color: #1976d2;
-            font-weight: 500;
-        }
-
-        .examples {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .examples h3 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .example-btn {
-            display: inline-block;
-            margin: 5px;
-            padding: 8px 15px;
-            background: white;
-            border: 2px solid #667eea;
-            color: #667eea;
-            border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .example-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-    </style>
+#result {
+    margin-top:15px;
+    font-size:22px;
+    font-weight:bold;
+}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>🛡️ AI Spam Detektor</h1>
-        <p class="subtitle">Använder maskininlärning för att identifiera spam-meddelanden</p>
-        
-        <div id="status" class="status">Laddar AI-modell...</div>
 
-        <div class="input-group">
-            <label for="textInput">Skriv in en engelsk text för att kontrollera:</label>
-            <textarea id="textInput" placeholder="Skriv eller klistra in din text här..."></textarea>
-        </div>
+<div class="card">
+    <h1>📧 Spam Detector AI</h1>
 
-        <button id="checkBtn" onclick="checkSpam()" disabled>Kontrollera text</button>
+    <textarea id="textInput" placeholder="Paste English email text..."></textarea>
 
-        <div id="result" class="result"></div>
+    <button onclick="predict()">Check</button>
 
-        <div class="examples">
-            <h3>📝 Testa med exempel:</h3>
-            <button class="example-btn" onclick="setExample('Hey! How are you doing today? Want to grab lunch later?')">
-                Normal text
-            </button>
-            <button class="example-btn" onclick="setExample('CONGRATULATIONS! You have won a FREE prize! Call now to claim your £1000 reward!')">
-                Spam exempel
-            </button>
-            <button class="example-btn" onclick="setExample('Hi, just wanted to remind you about the meeting tomorrow at 3pm')">
-                Påminnelse
-            </button>
-        </div>
-    </div>
+    <div id="result"></div>
+</div>
 
-    <script>
-        let model;
-        let wordIndex;
-        const maxLength = 30;
+<script>
+let model;
+let wordIndex;
 
-        // Ladda modellen och metadata
-        async function loadModel() {
-            try {
-                // Ladda word_index från metadata.json
-                const metadataResponse = await fetch('metadata.json');
-                const metadata = await metadataResponse.json();
-                wordIndex = metadata.word_index;
+const MAXLEN = 30;
 
-                // Ladda TensorFlow.js-modellen
-                model = await tf.loadLayersModel('model.json');
-                
-                document.getElementById('status').textContent = '✅ AI-modell laddad och redo!';
-                document.getElementById('status').style.background = '#e8f5e9';
-                document.getElementById('status').style.color = '#2e7d32';
-                document.getElementById('checkBtn').disabled = false;
-            } catch (error) {
-                console.error('Fel vid laddning av modell:', error);
-                document.getElementById('status').textContent = '❌ Kunde inte ladda modellen. Se till att alla filer finns i samma mapp.';
-                document.getElementById('status').style.background = '#ffebee';
-                document.getElementById('status').style.color = '#c62828';
-            }
-        }
+// Load model + tokenizer
+async function loadAll() {
+    document.getElementById("result").innerText = "Loading model...";
 
-        // Konvertera text till sekvens
-        function textToSequence(text) {
-            const words = text.toLowerCase()
-                .replace(/[^\w\s]/g, ' ')
-                .split(/\s+/)
-                .filter(word => word.length > 0);
-            
-            const sequence = words.map(word => {
-                return wordIndex[word] || wordIndex['<OOV>'] || 1;
-            });
+    model = await tf.loadLayersModel("model.json");
 
-            // Padding till maxLength
-            if (sequence.length < maxLength) {
-                return [...sequence, ...Array(maxLength - sequence.length).fill(0)];
-            } else {
-                return sequence.slice(0, maxLength);
-            }
-        }
+    const response = await fetch("word_index.json");
+    wordIndex = await response.json();
 
-        // Kontrollera spam
-        async function checkSpam() {
-            const text = document.getElementById('textInput').value.trim();
-            
-            if (!text) {
-                alert('Vänligen skriv in text först!');
-                return;
-            }
+    document.getElementById("result").innerText = "Model loaded ✅";
+}
 
-            if (!model) {
-                alert('Modellen är inte laddad än. Vänta ett ögonblick.');
-                return;
-            }
+loadAll();
 
-            // Visa laddning
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.className = 'result';
-            resultDiv.innerHTML = '<div class="loading">🔍 Analyserar text...</div>';
+// Simple tokenizer
+function tokenize(text) {
+    text = text.toLowerCase().replace(/[^a-z\s]/g,"");
+    let words = text.split(" ");
 
-            // Vänta lite för att visa laddningsanimationen
-            await new Promise(resolve => setTimeout(resolve, 300));
+    let tokens = [];
 
-            try {
-                // Konvertera text till sekvens
-                const sequence = textToSequence(text);
-                
-                // Skapa tensor och gör prediktion
-                const inputTensor = tf.tensor2d([sequence], [1, maxLength]);
-                const prediction = model.predict(inputTensor);
-                const score = (await prediction.data())[0];
-                
-                // Rensa tensor
-                inputTensor.dispose();
-                prediction.dispose();
+    for (let w of words) {
+        tokens.push(wordIndex[w] || 0);
+    }
 
-                // Visa resultat
-                displayResult(score);
-            } catch (error) {
-                console.error('Fel vid prediktion:', error);
-                resultDiv.innerHTML = '<div style="color: red;">Ett fel uppstod vid analysen. Försök igen.</div>';
-            }
-        }
+    // padding
+    if (tokens.length > MAXLEN)
+        tokens = tokens.slice(0,MAXLEN);
 
-        // Visa resultat
-        function displayResult(score) {
-            const resultDiv = document.getElementById('result');
-            const isSpam = score > 0.5;
-            const confidence = isSpam ? score : (1 - score);
-            const confidencePercent = (confidence * 100).toFixed(1);
+    while (tokens.length < MAXLEN)
+        tokens.push(0);
 
-            resultDiv.className = `result ${isSpam ? 'spam' : 'ham'}`;
-            
-            const icon = isSpam ? '🚫' : '✅';
-            const title = isSpam ? 'Detta är troligen SPAM!' : 'Detta verkar vara en legitim text';
-            const description = isSpam 
-                ? 'Texten innehåller spam-liknande mönster och bör behandlas med försiktighet.'
-                : 'Texten verkar vara ett normalt meddelande utan spam-indikationer.';
+    return tokens;
+}
 
-            resultDiv.innerHTML = `
-                <div class="result-title">${icon} ${title}</div>
-                <p>${description}</p>
-                <div class="confidence">
-                    Säkerhet: ${confidencePercent}%
-                    <div class="confidence-bar">
-                        <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
-                    </div>
-                </div>
-            `;
-            
-            resultDiv.style.display = 'block';
-        }
+// Predict
+async function predict() {
 
-        // Sätt exempel-text
-        function setExample(text) {
-            document.getElementById('textInput').value = text;
-            document.getElementById('result').style.display = 'none';
-        }
+    const text = document.getElementById("textInput").value;
 
-        // Ladda modellen när sidan laddas
-        window.addEventListener('load', loadModel);
-    </script>
+    if (!text) return;
+
+    const tokens = tokenize(text);
+
+    const input = tf.tensor2d([tokens],[1,MAXLEN]);
+
+    const pred = model.predict(input);
+    const score = (await pred.data())[0];
+
+    let resultText = "";
+
+    if (score > 0.5) {
+        resultText = `🚨 SPAM (${(score*100).toFixed(1)}%)`;
+    } else {
+        resultText = `✅ NOT SPAM (${((1-score)*100).toFixed(1)}%)`;
+    }
+
+    document.getElementById("result").innerText = resultText;
+
+    input.dispose();
+    pred.dispose();
+}
+</script>
+
 </body>
 </html>
