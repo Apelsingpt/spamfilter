@@ -2,15 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Linus – TensorFlow Text Classifier</title>
+  <title>Linus – TensorFlow.js Text Classifier</title>
+
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      font-size: 16px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #result, #tokens {
+      margin-top: 20px;
+    }
+  </style>
 </head>
+
 <body>
 
 <h1>Text Classification Demo – Linus</h1>
 
 <textarea id="textInput" placeholder="Write an English sentence..."></textarea>
-<br><br>
+<br>
 <button onclick="predict()">Analyze</button>
 
 <div id="result"></div>
@@ -19,24 +42,29 @@
 <script>
 let model;
 let wordIndex;
-const MAX_LEN = 30;
+const MAX_LEN = 30; // MÅSTE matcha modellen
 
 async function loadAll() {
-  model = await tf.loadLayersModel("./model.json");
+  model = await tf.loadLayersModel("tfjs_model/model.json");
 
-  const metadata = await fetch("./metadata.json").then(r => r.json());
+  const metadata = await fetch("tfjs_model/metadata.json").then(r => r.json());
   wordIndex = metadata.word_index || metadata.wordIndex;
 
-  console.log("Loaded model & metadata");
+  console.log("Model & metadata loaded");
 }
 
 loadAll();
 
 function tokenize(text) {
-  const words = text.toLowerCase().split(/\s+/);
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .split(/\s+/)
+    .filter(w => w.length > 0);
 
   const tokens = words.map(w => wordIndex[w] || 0);
 
+  // padding / truncation
   while (tokens.length < MAX_LEN) tokens.push(0);
   tokens.length = MAX_LEN;
 
@@ -49,14 +77,17 @@ async function predict() {
 
   const { words, tokens } = tokenize(text);
 
-  const input = tf.tensor2d([tokens], [1, MAX_LEN], "int32");
-  const output = model.predict(input);
+  const inputTensor = tf.tensor2d([tokens], [1, MAX_LEN], "int32");
+  const output = model.predict(inputTensor);
   const prob = (await output.data())[0];
+
+  const percent = (prob * 100).toFixed(2);
+  const label = prob >= 0.5 ? "Positive" : "Negative";
 
   document.getElementById("result").innerHTML = `
     <h2>Result</h2>
-    <p><b>Probability:</b> ${(prob * 100).toFixed(2)}%</p>
-    <p><b>Class:</b> ${prob >= 0.5 ? "Positive" : "Negative"}</p>
+    <p><b>Prediction:</b> ${label}</p>
+    <p><b>Probability:</b> ${percent}%</p>
   `;
 
   document.getElementById("tokens").innerHTML = `
@@ -66,7 +97,7 @@ async function predict() {
     </ul>
   `;
 
-  tf.dispose([input, output]);
+  tf.dispose([inputTensor, output]);
 }
 </script>
 
