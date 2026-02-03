@@ -1,181 +1,22 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Spam-detektor (TensorFlow.js)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      max-width: 780px;
-      margin: 30px auto;
-      padding: 20px;
-      background: #f9f9f9;
-    }
-    textarea {
-      width: 100%;
-      height: 140px;
-      padding: 12px;
-      font-size: 16px;
-      border: 2px solid #ccc;
-      border-radius: 8px;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    button {
-      margin: 16px 0;
-      padding: 12px 24px;
-      font-size: 17px;
-      background: #0066cc;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover { background: #0055aa; }
-    #result {
-      font-size: 18px;
-      font-weight: bold;
-      min-height: 40px;
-      padding: 12px;
-      border-radius: 8px;
-    }
-    .spam    { background: #ffebee; color: #c62828; }
-    .notspam { background: #e8f5e9; color: #2e7d32; }
-    .loading { color: #555; }
-    small { color: #777; }
-  </style>
+  <title>Linus – TensorFlow Text Classifier</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<h1>Spam-detektor för engelska texter</h1>
-<p>Skriv in en engelsk text (t.ex. e-post, kommentar, sms) och klicka på "Kolla spam".</p>
+  <h1>Text Classification Demo – Linus</h1>
 
-<textarea id="inputText" placeholder="Skriv eller klistra in text här..."></textarea>
+  <textarea id="textInput" placeholder="Write an English sentence..."></textarea>
+  <button onclick="predict()">Analyze</button>
 
-<button onclick="predict()">Kolla spam</button>
+  <div id="result"></div>
+  <div id="tokens"></div>
 
-<div id="result"></div>
-
-<small>Modell från: <a href="https://github.com/Apelsingpt/spamfilter" target="_blank">github.com/Apelsingpt/spamfilter</a></small>
-
-<script>
-// ---------------------------------------------------
-// ÄNDRA DESSA VÄRDEN baserat på din metadata.json !
-// ---------------------------------------------------
-const MAX_LEN       = 150;       // ← mest trolig längd – KOLLA METADATA.JSON
-const SPAM_LABEL    = 1;         // 1 = spam, 0 = ham ? eller tvärtom?
-const VOCABULARY    = null;      // ← måste fyllas från metadata.json
-
-// Ladda vocabulary från metadata.json (kör bara en gång)
-let wordIndex = null;
-
-async function loadMetadata() {
-  if (wordIndex) return;
-  try {
-    const res = await fetch('https://raw.githubusercontent.com/Apelsingpt/spamfilter/main/tfjs_model/metadata.json');
-    const meta = await res.json();
-    
-    // Vanlig struktur – ändra beroende på hur din metadata ser ut
-    wordIndex = meta.word_index || meta.vocab || meta.dictionary;
-    // MAX_LEN   = meta.max_len || meta.sequence_length || 150;
-    console.log("Vocabulary laddad, storlek:", Object.keys(wordIndex).length);
-  } catch (e) {
-    console.error("Kunde inte ladda metadata", e);
-    document.getElementById('result').innerHTML = "Fel: kunde inte ladda metadata.json";
-  }
-}
-
-function textToSequence(text) {
-  if (!wordIndex) {
-    throw new Error("Vocabulary inte laddat ännu");
-  }
-  
-  const words = text.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')   // ta bort allt utom bokstäver, siffror, mellanslag
-    .split(/\s+/)
-    .filter(w => w.length > 0);
-  
-  const seq = words.map(w => wordIndex[w] || 0); // 0 = OOV (out of vocabulary)
-  
-  // Klipp eller padda till MAX_LEN
-  if (seq.length > MAX_LEN) {
-    seq.length = MAX_LEN;
-  } else {
-    while (seq.length < MAX_LEN) seq.push(0);
-  }
-  
-  return seq;
-}
-
-let model = null;
-
-async function loadModel() {
-  if (model) return model;
-  
-  try {
-    const modelUrl = 'https://raw.githubusercontent.com/Apelsingpt/spamfilter/main/tfjs_model/model.json';
-    model = await tf.loadLayersModel(modelUrl);
-    console.log("Modell laddad ✓");
-    return model;
-  } catch (err) {
-    console.error("Kunde inte ladda modellen", err);
-    document.getElementById('result').innerHTML = "Fel vid laddning av modellen. Kolla konsolen.";
-    return null;
-  }
-}
-
-async function predict() {
-  const resultDiv = document.getElementById('result');
-  resultDiv.className = '';
-  resultDiv.innerHTML = "Laddar modell och ordlista...";
-
-  await loadMetadata();   // ladda vocabulary först
-  if (!wordIndex) return;
-
-  if (!model) {
-    resultDiv.innerHTML = "Laddar modell... vänta...";
-    model = await loadModel();
-    if (!model) return;
-  }
-
-  const text = document.getElementById('inputText').value.trim();
-  if (!text) {
-    resultDiv.innerHTML = "Skriv något först!";
-    return;
-  }
-
-  try {
-    const sequence = textToSequence(text);
-    const inputTensor = tf.tensor2d([sequence], [1, MAX_LEN]);
-
-    const prediction = model.predict(inputTensor);
-    const score = (await prediction.data())[0];   // sigmoid → 0..1
-
-    inputTensor.dispose();
-    prediction.dispose();
-
-    let message, cls;
-    if (score > 0.5) {
-      message = `Spam! (sannolikhet ${Math.round(score*100)}%)`;
-      cls = 'spam';
-    } else {
-      message = `Ser ut som legitim text (${Math.round((1-score)*100)}% inte spam)`;
-      cls = 'notspam';
-    }
-
-    resultDiv.className = cls;
-    resultDiv.innerHTML = message;
-  } catch (e) {
-    console.error(e);
-    resultDiv.innerHTML = "Fel vid förutsägelse: " + e.message;
-  }
-}
-
-// Ladda metadata direkt när sidan öppnas (valfritt)
-loadMetadata().catch(console.error);
-</script>
-
+  <script src="script.js"></script>
 </body>
 </html>
