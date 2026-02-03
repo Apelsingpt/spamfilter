@@ -42,8 +42,9 @@
 <script>
 let model;
 let wordIndex;
-const MAX_LEN = 30; // Måste matcha modellen
+const MAX_LEN = 30; // Must match your model
 
+// Load model and metadata
 async function loadAll() {
   model = await tf.loadLayersModel("tfjs_model/model.json");
 
@@ -55,6 +56,7 @@ async function loadAll() {
 
 loadAll();
 
+// Tokenize text
 function tokenize(text) {
   const words = text
     .toLowerCase()
@@ -64,33 +66,41 @@ function tokenize(text) {
 
   const tokens = words.map(w => wordIndex[w] || 0);
 
-  // padding / truncation
+  // Padding / truncation
   while (tokens.length < MAX_LEN) tokens.push(0);
   tokens.length = MAX_LEN;
 
   return { words, tokens };
 }
 
+// Predict function
 async function predict() {
-  const text = document.getElementById("textInput").value;
+  const text = document.getElementById("textInput").value.trim();
   if (!text) return;
 
   const { words, tokens } = tokenize(text);
 
   const inputTensor = tf.tensor2d([tokens], [1, MAX_LEN], "int32");
   const output = model.predict(inputTensor);
-  const prob = (await output.data())[0];
+  const probSpam = (await output.data())[0]; // Probability for Spam
+  const probNotSpam = 1 - probSpam;
 
-  // Anpassa för spam
-  const percent = (prob * 100).toFixed(2);
-  const label = prob >= 0.5 ? "Spam" : "Not Spam";
+  // Convert to percentages
+  const spamPercent = (probSpam * 100).toFixed(2);
+  const notSpamPercent = (probNotSpam * 100).toFixed(2);
 
+  // Determine label
+  const label = probSpam >= 0.5 ? "Spam" : "Not Spam";
+
+  // Show result
   document.getElementById("result").innerHTML = `
     <h2>Result</h2>
     <p><b>Prediction:</b> ${label}</p>
-    <p><b>Spam Probability:</b> ${percent}%</p>
+    <p><b>Spam:</b> ${spamPercent}%</p>
+    <p><b>Not Spam:</b> ${notSpamPercent}%</p>
   `;
 
+  // Show token mapping
   document.getElementById("tokens").innerHTML = `
     <h2>Tokens</h2>
     <ul>
